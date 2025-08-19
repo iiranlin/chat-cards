@@ -12,6 +12,7 @@ import {
   type BubbleProps,
 } from "@ant-design/x";
 import { createStyles } from "antd-style";
+import "./thinking.css";
 import React, { useEffect } from "react";
 
 import {
@@ -26,6 +27,7 @@ import {
   ShareAltOutlined,
   SmileOutlined,
   SettingOutlined,
+  StopOutlined,
 } from "@ant-design/icons";
 import {
   Alert,
@@ -51,12 +53,6 @@ import {
   type OpenApiConfig,
 } from "@/lib/config";
 
-const renderTitle = (icon: React.ReactElement, title: string) => (
-  <Space align="start">
-    {icon}
-    <span>{title}</span>
-  </Space>
-);
 // 轻量 Markdown 渲染（无第三方依赖）
 function escapeHtmlLite(s: string) {
   return s
@@ -113,6 +109,91 @@ const renderMarkdown: BubbleProps["messageRender"] = (content) => (
     <div dangerouslySetInnerHTML={{ __html: mdToHtmlLite(content) }} />
   </Typography>
 );
+// 将“思考 + 回答”合并为一个内容字符串，其中思考使用 blockquote 样式
+function buildCombinedContent(
+  thinking: string,
+  answer: string,
+  includeEmptyQuote = false
+) {
+  const parts: string[] = [];
+  const hasThinking = typeof thinking === "string" && thinking.length > 0;
+  if (includeEmptyQuote || hasThinking) {
+    const safeThinking = hasThinking ? thinking : "\u200B"; // 零宽空格保持结构稳定，减少闪烁
+    const html = `<blockquote class="x-thinking">${escapeHtmlLite(
+      safeThinking
+    ).replace(/\n/g, "<br/>")}</blockquote>`;
+    parts.push(html);
+  }
+  if (answer) parts.push(answer);
+  return parts.join("\n\n");
+}
+
+const HOT_TOPICS: GetProp<typeof Prompts, "items"> = [
+  {
+    key: "1",
+    label: "Hot Topics",
+    children: [
+      {
+        key: "1-1",
+        description: "What has Ant Design X upgraded?",
+        icon: <span style={{ color: "#f93a4a", fontWeight: 700 }}>1</span>,
+      },
+      {
+        key: "1-2",
+        description: "New AGI Hybrid Interface",
+        icon: <span style={{ color: "#ff6565", fontWeight: 700 }}>2</span>,
+      },
+      {
+        key: "1-3",
+        description: "What components are in Ant Design X?",
+        icon: <span style={{ color: "#ff8f1f", fontWeight: 700 }}>3</span>,
+      },
+      {
+        key: "1-4",
+        description: "Come and discover the new design paradigm of the AI era.",
+        icon: <span style={{ color: "#00000040", fontWeight: 700 }}>4</span>,
+      },
+      {
+        key: "1-5",
+        description: "How to quickly install and import components?",
+        icon: <span style={{ color: "#00000040", fontWeight: 700 }}>5</span>,
+      },
+    ],
+  },
+];
+
+const DESIGN_GUIDE: GetProp<typeof Prompts, "items"> = [
+  {
+    key: "2",
+    label: "Design Guide",
+    children: [
+      {
+        key: "2-1",
+        icon: <HeartOutlined />,
+        label: "Intention",
+        description: "AI understands user needs and provides solutions.",
+      },
+      {
+        key: "2-2",
+        icon: <SmileOutlined />,
+        label: "Role",
+        description: "AI's public persona and image",
+      },
+      {
+        key: "2-3",
+        icon: <CommentOutlined />,
+        label: "Chat",
+        description: "How AI Can Express Itself in a Way Users Understand",
+      },
+      {
+        key: "2-4",
+        icon: <PaperClipOutlined />,
+        label: "Interface",
+        description: 'AI balances "chat" & "do" behaviors.',
+      },
+    ],
+  },
+];
 
 const defaultConversationsItems = [
   {
@@ -126,7 +207,7 @@ const useStyle = createStyles(({ token, css }) => {
     layout: css`
       width: 100%;
       min-width: 1000px;
-      height: 722px;
+      height: 100vh;
       border-radius: ${token.borderRadius}px;
       display: flex;
       background: ${token.colorBgContainer};
@@ -142,30 +223,40 @@ const useStyle = createStyles(({ token, css }) => {
       height: 100%;
       display: flex;
       flex-direction: column;
+      padding: 0 12px;
+      box-sizing: border-box;
     `,
     conversations: css`
-      padding: 0 12px;
+      padding: 0;
       flex: 1;
       overflow-y: auto;
+      margin-top: 12px;
+
+      .ant-conversations-list {
+        padding-inline-start: 0;
+      }
     `,
     chat: css`
       height: 100%;
       width: 100%;
-      max-width: 700px;
-      margin: 0 auto;
       box-sizing: border-box;
       display: flex;
       flex-direction: column;
-      padding: ${token.paddingLG}px;
+      padding-block: ${token.paddingLG}px;
       gap: 16px;
     `,
     messages: css`
       flex: 1;
+      overflow: auto;
+      padding-inline: calc(50% - 350px);
     `,
     placeholder: css`
       padding-top: 32px;
     `,
     sender: css`
+      width: 100%;
+      max-width: 700px;
+      margin: 0 auto;
       box-shadow: ${token.boxShadow};
     `,
     logo: css`
@@ -194,60 +285,15 @@ const useStyle = createStyles(({ token, css }) => {
       background: #1677ff0f;
       border: 1px solid #1677ff34;
       width: calc(100% - 24px);
-      margin: 0 12px 24px 12px;
+      margin: 0 12px 12px 12px;
+      height: 40px;
+    `,
+    stopRow: css`
+      display: flex;
+      justify-content: flex-end;
     `,
   };
 });
-
-const placeholderPromptsItems: GetProp<typeof Prompts, "items"> = [
-  {
-    key: "1",
-    label: renderTitle(
-      <FireOutlined style={{ color: "#FF4D4F" }} />,
-      "Hot Topics"
-    ),
-    description: "What are you interested in?",
-    children: [
-      {
-        key: "1-1",
-        description: `What's new in X?`,
-      },
-      {
-        key: "1-2",
-        description: `What's AGI?`,
-      },
-      {
-        key: "1-3",
-        description: `Where is the doc?`,
-      },
-    ],
-  },
-  {
-    key: "2",
-    label: renderTitle(
-      <ReadOutlined style={{ color: "#1890FF" }} />,
-      "Design Guide"
-    ),
-    description: "How to design a good product?",
-    children: [
-      {
-        key: "2-1",
-        icon: <HeartOutlined />,
-        description: `Know the well`,
-      },
-      {
-        key: "2-2",
-        icon: <SmileOutlined />,
-        description: `Set the AI role`,
-      },
-      {
-        key: "2-3",
-        icon: <CommentOutlined />,
-        description: `Express the feeling`,
-      },
-    ],
-  },
-];
 
 const senderPromptsItems: GetProp<typeof Prompts, "items"> = [
   {
@@ -265,7 +311,6 @@ const senderPromptsItems: GetProp<typeof Prompts, "items"> = [
 const roles: GetProp<typeof Bubble.List, "roles"> = {
   ai: {
     placement: "start",
-    typing: { step: 5, interval: 20 },
     styles: {
       content: {
         borderRadius: 16,
@@ -282,6 +327,10 @@ const Independent: React.FC = () => {
   // ==================== Style ====================
   const { styles } = useStyle();
 
+  // 本地对话缓存：键 = 会话 key，值 = Bubble.List items
+  const [messageHistory, setMessageHistory] = React.useState<
+    Record<string, any[]>
+  >({});
   // ==================== State ====================
   const [headerOpen, setHeaderOpen] = React.useState(false);
 
@@ -320,6 +369,17 @@ const Independent: React.FC = () => {
   useEffect(() => {
     thinkingRef.current = thinkingText;
   }, [thinkingText]);
+
+  // 终止控制器（用于中断正在进行的请求）
+  const abortRef = React.useRef<AbortController | null>(null);
+  const abortRequest = () => {
+    try {
+      abortRef.current?.abort();
+    } finally {
+      abortRef.current = null;
+      setIsStreaming(false);
+    }
+  };
 
   // 初始化：优先加载本地配置
   useEffect(() => {
@@ -436,6 +496,11 @@ const Independent: React.FC = () => {
           setAnswerText("");
         }
 
+        // 构造 AbortController 以支持中断
+        const controller = new AbortController();
+        abortRef.current?.abort(); // 先清掉上一次的
+        abortRef.current = controller;
+
         const resp = await fetch(endpoint, {
           method: "POST",
           headers: {
@@ -444,6 +509,7 @@ const Independent: React.FC = () => {
             ...buildAuthHeader(apiKey),
           },
           body: JSON.stringify(baseBody),
+          signal: controller.signal,
         });
         if (!resp.ok) {
           const text = await resp.text();
@@ -472,26 +538,52 @@ const Independent: React.FC = () => {
                 const t = delta?.reasoning_content || choice?.reasoning_content;
                 const c = delta?.content || choice?.content;
                 if (t) setThinkingText((prev) => prev + String(t));
-                if (c) setAnswerText((prev) => prev + String(c));
+                if (c)
+                  setAnswerText((prev) =>
+                    prev ? prev + String(c) : String(c)
+                  );
               } catch {}
             }
           }
           setIsStreaming(false);
-          onSuccess(answerRef.current || "");
+          const finalCombined = buildCombinedContent(
+            thinkingRef.current,
+            answerRef.current
+          );
+          onSuccess(finalCombined || answerRef.current || "");
         } else {
           const data = await resp.json();
+          const choice = data?.choices?.[0];
           const content =
-            data?.choices?.[0]?.message?.content ||
-            data?.data ||
-            data?.output ||
+            choice?.message?.content || data?.data || data?.output || "";
+          const reasoning =
+            choice?.message?.reasoning_content ||
+            choice?.reasoning_content ||
+            data?.reasoning_content ||
             "";
-          if (!content) throw new Error("接口未返回可用的 content");
-          onSuccess(content);
+          if (reasoning) setThinkingText((prev) => prev + String(reasoning));
+          if (!content && !reasoning)
+            throw new Error("接口未返回可用的 content/reasoning_content");
+          const finalCombined = buildCombinedContent(reasoning, content);
+          onSuccess(finalCombined || content);
         }
       } catch (e: any) {
-        const errMsg = e?.message || "请求失败";
-        message.error(errMsg);
-        onError?.(new Error(errMsg));
+        if (e?.name === "AbortError") {
+          // 主动中断：不提示错误，保留已输出内容并收尾为最终消息
+          abortRef.current = null;
+          setIsStreaming(false);
+          const partial = buildCombinedContent(
+            thinkingRef.current,
+            answerRef.current
+          );
+          if (thinkingRef.current || answerRef.current) {
+            onSuccess(partial || answerRef.current || "");
+          }
+        } else {
+          const errMsg = e?.message || "请求失败";
+          message.error(errMsg);
+          onError?.(new Error(errMsg));
+        }
       }
     },
   });
@@ -499,6 +591,35 @@ const Independent: React.FC = () => {
   const { onRequest, messages, setMessages } = useXChat({
     agent,
   });
+
+  // —— 持久化：messages 按会话写入本地缓存，并在加载时恢复 ——
+  React.useEffect(() => {
+    try {
+      const map = JSON.parse(localStorage.getItem("x_chat_history") || "{}");
+      if (map && typeof map === "object") {
+        setMessageHistory(map);
+      }
+    } catch {}
+  }, []);
+
+  React.useEffect(() => {
+    if (!activeKey) return;
+    // 切换会话时，加载对应缓存
+    const list = messageHistory?.[activeKey];
+    if (Array.isArray(list)) setMessages(list as any);
+  }, [activeKey]);
+
+  React.useEffect(() => {
+    if (!activeKey) return;
+    // 写入缓存
+    setMessageHistory((prev) => {
+      const next = { ...prev, [activeKey]: messages };
+      try {
+        localStorage.setItem("x_chat_history", JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }, [messages, activeKey]);
 
   useEffect(() => {
     if (activeKey !== undefined) {
@@ -520,14 +641,20 @@ const Independent: React.FC = () => {
   };
 
   const onAddConversation = () => {
+    const newKey = `${conversationsItems.length}`;
     setConversationsItems([
       ...conversationsItems,
-      {
-        key: `${conversationsItems.length}`,
-        label: `New Conversation ${conversationsItems.length}`,
-      },
+      { key: newKey, label: `New Conversation ${conversationsItems.length}` },
     ]);
-    setActiveKey(`${conversationsItems.length}`);
+    setActiveKey(newKey);
+    // 为新会话初始化空消息并持久化
+    setMessageHistory((prev) => {
+      const next = { ...prev, [newKey]: [] };
+      try {
+        localStorage.setItem("x_chat_history", JSON.stringify(next));
+      } catch {}
+      return next;
+    });
   };
 
   const onConversationClick: GetProp<typeof Conversations, "onActiveChange"> = (
@@ -554,19 +681,24 @@ const Independent: React.FC = () => {
           </Space>
         }
       />
-      <Prompts
-        title="Do you want?"
-        items={placeholderPromptsItems}
-        styles={{
-          list: {
-            width: "100%",
-          },
-          item: {
-            flex: 1,
-          },
-        }}
-        onItemClick={onPromptsItemClick}
-      />
+      <Space direction="horizontal" size="large">
+        <div style={{ flex: 1 }}>
+          <Prompts
+            title="Hot Topics"
+            items={HOT_TOPICS}
+            styles={{ list: { width: "100%" }, item: { flex: 1 } }}
+            onItemClick={onPromptsItemClick}
+          />
+        </div>
+        <div style={{ flex: 1 }}>
+          <Prompts
+            title="Design Guide"
+            items={DESIGN_GUIDE}
+            styles={{ list: { width: "100%" }, item: { flex: 1 } }}
+            onItemClick={onPromptsItemClick}
+          />
+        </div>
+      </Space>
 
       {/* 🌟 配置状态提示（仅前端）*/}
       {openApiConfig ? (
@@ -575,25 +707,6 @@ const Independent: React.FC = () => {
           showIcon
           message={
             <Typography.Text>
-              {/* 思考过程展示 + 流式答案（简化版） */}
-              {thinkingText && (
-                <Alert
-                  type="info"
-                  showIcon
-                  message="思考过程"
-                  description={
-                    <div style={{ whiteSpace: "pre-wrap" }}>{thinkingText}</div>
-                  }
-                />
-              )}
-              {isStreaming && answerText && (
-                <Alert
-                  type="success"
-                  showIcon
-                  message="AI 正在回答（预览）"
-                  description={<MarkdownLite text={answerText} />}
-                />
-              )}
               已加载 OpenAPI 配置：
               <Typography.Text code>{openApiConfig.baseUrl}</Typography.Text>
             </Typography.Text>
@@ -665,16 +778,30 @@ const Independent: React.FC = () => {
     </Space>
   );
 
-  const items: GetProp<typeof Bubble.List, "items"> = messages.map(
-    ({ id, message, status }) => ({
+  const items: GetProp<typeof Bubble.List, "items"> = React.useMemo(() => {
+    const base = messages.map(({ id, message, status }) => ({
       key: id,
       loading: status === "loading",
       role: status === "local" ? "local" : "ai",
       content: message,
-      // 使用 Bubble 的 messageRender，保留打字机效果
       messageRender: renderMarkdown,
-    })
-  );
+    }));
+    if (isStreaming) {
+      const combinedPreview = buildCombinedContent(
+        thinkingText,
+        answerText,
+        true
+      );
+      base.push({
+        key: "__streaming__",
+        loading: false,
+        role: "ai",
+        content: combinedPreview,
+        messageRender: renderMarkdown,
+      } as any);
+    }
+    return base as any;
+  }, [messages, isStreaming, thinkingText, answerText]);
 
   const attachmentsNode = (
     <Badge dot={attachedFiles.length > 0 && !headerOpen}>
@@ -749,7 +876,7 @@ const Independent: React.FC = () => {
         />
       </div>
       <div className={styles.chat}>
-        {/* 🌟 消息列表 */}
+        {/* 🌟 消息列表（思考与输出合并为同一条气泡预览） */}
         <Bubble.List
           items={
             items.length > 0
@@ -760,13 +887,31 @@ const Independent: React.FC = () => {
           className={styles.messages}
         />
         {/* 🌟 提示词 */}
-        <Prompts items={senderPromptsItems} onItemClick={onPromptsItemClick} />
+        <div className={styles.stopRow}>
+          {isStreaming ? (
+            <Button
+              danger
+              type="text"
+              size="small"
+              onClick={abortRequest}
+              icon={<StopOutlined />}
+            >
+              Stop
+            </Button>
+          ) : null}
+        </div>
+        <Prompts
+          style={{ paddingInline: "calc(50% - 350px)" }}
+          items={senderPromptsItems}
+          onItemClick={onPromptsItemClick}
+        />
         {/* 🌟 输入框 */}
         <Sender
           value={content}
           header={senderHeader}
           onSubmit={onSubmit}
           onChange={setContent}
+          onCancel={abortRequest}
           prefix={attachmentsNode}
           loading={agent.isRequesting()}
           className={styles.sender}
