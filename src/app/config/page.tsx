@@ -15,6 +15,7 @@ import {
 import { SaveOutlined, PlayCircleOutlined } from "@ant-design/icons";
 import {
   saveConfigToLocal,
+  loadConfigFromLocal,
   type OpenApiConfig,
   encodeConfigForURL,
   buildShareUrl,
@@ -39,6 +40,18 @@ const DEFAULT_SPEC_PLACEHOLDER = `{
 export default function ConfigPage() {
   const [form] = Form.useForm();
   const [jsonError, setJsonError] = React.useState<string | null>(null);
+
+  // 回显本地缓存
+  React.useEffect(() => {
+    const local = loadConfigFromLocal();
+    if (local) {
+      form.setFieldsValue({
+        baseUrl: local.baseUrl || "",
+        apiKey: local.apiKey || "",
+        specText: local.spec ? JSON.stringify(local.spec, null, 2) : "",
+      });
+    }
+  }, [form]);
 
   const onSave = async (goChat?: boolean) => {
     try {
