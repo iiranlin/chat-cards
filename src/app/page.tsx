@@ -42,6 +42,7 @@ import {
   message,
   type GetProp,
 } from "antd";
+import Copilot from "@/components/Copilot";
 import { useSearchParams } from "next/navigation";
 import {
   buildShareUrl,
@@ -355,6 +356,9 @@ const Independent: React.FC = () => {
   const [shareOpen, setShareOpen] = React.useState(false);
   const [shareIncludeApiKey, setShareIncludeApiKey] = React.useState(false);
   const [shareOmitSpec, setShareOmitSpec] = React.useState(false);
+  // 助手式浮层开关
+  const [copilotOpen, setCopilotOpen] = React.useState(false);
+
   const [shareUrl, setShareUrl] = React.useState("");
 
   // 流式与思考过程可视化
@@ -742,6 +746,24 @@ const Independent: React.FC = () => {
         style={{ right: 88 }}
         tooltip="OpenAPI 配置"
       />
+      {/* 🌟 助手式（可被 iframe 嵌入的独立页面：/copilot） */}
+      {/* 点击后新标签打开 /copilot，供外部通过 <iframe src> 引用 */}
+      <FloatButton
+        shape="square"
+        icon={<CommentOutlined />}
+        style={{ right: 148 }}
+        onClick={() => setCopilotOpen(true)}
+        tooltip="打开助手式（可通过 iframe 引入）"
+      />
+      {copilotOpen ? (
+        <div style={{ position: "fixed", right: 16, bottom: 16, zIndex: 1100 }}>
+          <Copilot
+            open
+            onClose={() => setCopilotOpen(false)}
+            onShare={openShare}
+          />
+        </div>
+      ) : null}
       <Drawer
         title="分享此聊天配置"
         placement="right"
@@ -905,6 +927,8 @@ const Independent: React.FC = () => {
           items={senderPromptsItems}
           onItemClick={onPromptsItemClick}
         />
+        {/* 🌟 助手式侧边 UI（Copilot）浮层开关按钮，可快速分享助手配置 */}
+        {/* <Copilot open={false} onClose={() => {}} onShare={openShare} agent={agent} /> */}
         {/* 🌟 输入框 */}
         <Sender
           value={content}
